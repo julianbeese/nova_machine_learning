@@ -208,7 +208,7 @@ def evaluate_model(model, X_test, y_test, log_transformed=False):
     return mse, rmse, mae, r2
 
 
-def main_ridge(df):
+def main(df):
 
     # Step 2: Preprocess data
     X_train, X_test, y_train, y_test, numeric_cols, categorical_cols = preprocess_data(df)
