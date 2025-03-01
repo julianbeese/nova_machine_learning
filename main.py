@@ -99,7 +99,7 @@ def run_pipeline(mode='train', model_type='all', input_file=None, output_file=No
             if model_type == 'best':
                 model_file = 'models/best_model.pkl'
             else:
-                model_file = f'models/{model_type}_model.pkl'
+                model_file = f'models/trained/{model_type}_model.pkl'
 
             if not os.path.exists(model_file):
                 raise ValueError(f"Model {model_file} not found. Please train a model first.")
@@ -119,7 +119,7 @@ def run_pipeline(mode='train', model_type='all', input_file=None, output_file=No
         if model_type == 'best':
             model_file = 'models/best_model.pkl'
         else:
-            model_file = f'models/{model_type}_model.pkl'
+            model_file = f'models/trained/{model_type}_model.pkl'
 
         if not os.path.exists(model_file):
             raise ValueError(f"Model {model_file} not found. Please train a model first.")

@@ -212,8 +212,8 @@ def train_models(X_train, y_train, X_test, y_test, model_type='all', config=None
 
         import joblib
         import os
-        os.makedirs('models', exist_ok=True)
-        joblib.dump(best_model, 'models/best_model.pkl')
+        os.makedirs('models/trained', exist_ok=True)
+        joblib.dump(best_model, 'models/trained/best_model.pkl')
 
         return best_model, best_metrics
     else:
