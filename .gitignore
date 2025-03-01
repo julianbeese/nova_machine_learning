@@ -172,4 +172,5 @@ cython_debug/
 /.idea/vcs.xml
 
 .idea
-/data
+/data!/src/data/test.csv
+!/src/data/train.csv
