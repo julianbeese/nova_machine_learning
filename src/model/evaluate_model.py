@@ -102,12 +102,6 @@ Created on: {datetime.now().strftime("%d.%m.%Y, %H:%M:%S")}
         report_content += "\n"
 
     if plot or save_report:
-        # Add explanation for the Actual vs. Predicted plot
-        actual_vs_predicted_explanation = """**Actual vs. Predicted Prices**: This scatter plot shows how well the model's predictions match the actual prices. 
-Points that fall on the red dashed line indicate perfect predictions. 
-Points above the line represent underestimations (predicted < actual), while points below represent overestimations (predicted > actual).
-The closer the points are to the line, the more accurate the model."""
-
         plt.figure(figsize=(10, 6))
         plt.scatter(y_test_original, y_pred, alpha=0.5)
         plt.plot([y_test_original.min(), y_test_original.max()], [y_test_original.min(), y_test_original.max()], 'r--')
@@ -122,21 +116,15 @@ The closer the points are to the line, the more accurate the model."""
 
             report_content += """### Actual vs. Predicted Prices
 
+![Actual vs. Predicted Prices](actual_vs_predicted.png)
+
 """
-            report_content += actual_vs_predicted_explanation + "\n\n"
-            report_content += f"![Actual vs. Predicted Prices](actual_vs_predicted.png)\n\n"
 
         if plot:
             plt.show()
 
         if save_report and not plot:
             plt.close()
-
-        # Add explanation for the Residual Plot
-        residual_plot_explanation = """**Residual Plot**: This plot shows the prediction errors (residuals) against the predicted values. 
-The red dashed line at y=0 represents perfect predictions. 
-Ideally, points should be randomly scattered around this line with no clear pattern.
-Patterns in this plot can indicate areas where the model consistently over or underestimates prices."""
 
         plt.figure(figsize=(10, 6))
         plt.scatter(y_pred, y_test_original - y_pred, alpha=0.5)
@@ -152,21 +140,15 @@ Patterns in this plot can indicate areas where the model consistently over or un
 
             report_content += """### Residual Plot
 
+![Residual Plot](residuals.png)
+
 """
-            report_content += residual_plot_explanation + "\n\n"
-            report_content += f"![Residual Plot](residuals.png)\n\n"
 
         if plot:
             plt.show()
 
         if save_report and not plot:
             plt.close()
-
-        # Add explanation for the Distribution of Residuals
-        residual_distribution_explanation = """**Distribution of Residuals**: This histogram shows the distribution of prediction errors (residuals).
-Ideally, residuals should be normally distributed around zero (the red dashed line).
-A symmetrical bell-shaped curve centered at zero indicates unbiased predictions.
-Skewness in this distribution suggests the model may be consistently over or underestimating prices for certain ranges."""
 
         plt.figure(figsize=(10, 6))
         residuals = y_test_original - y_pred
@@ -183,9 +165,9 @@ Skewness in this distribution suggests the model may be consistently over or und
 
             report_content += """### Distribution of Residuals
 
+![Distribution of Residuals](residuals_histogram.png)
+
 """
-            report_content += residual_distribution_explanation + "\n\n"
-            report_content += f"![Distribution of Residuals](residuals_histogram.png)\n\n"
 
         if plot:
             plt.show()
@@ -214,12 +196,6 @@ Skewness in this distribution suggests the model may be consistently over or und
 
                 feature_importance = feature_importance.sort_values('Importance', ascending=False)
 
-                # Add explanation for the Feature Importance plot
-                feature_importance_explanation = """**Feature Importance**: This bar chart shows the top features that influence the model's predictions the most.
-Features are ranked by their absolute coefficient values, which indicate how strongly each feature affects the predicted price.
-Higher values indicate stronger influence on the price prediction.
-Understanding these key factors can help identify which car attributes most affect resale value."""
-
                 plt.figure(figsize=(12, 8))
                 sns.barplot(x='Importance', y='Feature', data=feature_importance.head(20))
                 plt.title('Top 20 Feature Importance')
@@ -231,11 +207,9 @@ Understanding these key factors can help identify which car attributes most affe
 
                     report_content += """### Feature Importance
 
-"""
-                    report_content += feature_importance_explanation + "\n\n"
-                    report_content += f"![Feature Importance](feature_importance.png)\n\n"
+![Feature Importance](feature_importance.png)
 
-                    report_content += """#### Top 20 Features by Importance
+#### Top 20 Features by Importance
 
 | Feature | Importance |
 |---------|------------|
@@ -280,3 +254,410 @@ Evaluation date: {datetime.now().strftime("%d.%m.%Y, %H:%M:%S")}
         print(f"\nReport has been created and saved at {report_file}")
 
     return mse, rmse, mae, r2
+
+
+def compare_models(models_dict, X_test, y_test, log_transformed=False, save_report=False):
+    """
+    Compares multiple models using various metrics.
+
+    Args:
+        models_dict (dict): Dictionary with model names as keys and trained models as values
+        X_test (pandas.DataFrame): Test features
+        y_test (pandas.Series): Actual target values
+        log_transformed (bool): Whether the target values were log-transformed
+        save_report (bool): Whether to create and save a comparison report
+
+    Returns:
+        pandas.DataFrame: DataFrame with model comparison
+    """
+    results = []
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+    report_dir = None
+    if save_report:
+        report_dir = f"results/reports/model_comparison_{timestamp}"
+        os.makedirs(report_dir, exist_ok=True)
+
+    for model_name, model in models_dict.items():
+        print(f"\nEvaluating {model_name}...")
+
+        if save_report:
+            model_report_dir = os.path.join(report_dir, model_name)
+            os.makedirs(model_report_dir, exist_ok=True)
+
+            mse, rmse, mae, r2 = evaluate_model(
+                model, X_test, y_test,
+                log_transformed=log_transformed,
+                plot=False,
+                save_report=True,
+                model_name=model_name
+            )
+        else:
+            mse, rmse, mae, r2 = evaluate_model(
+                model, X_test, y_test,
+                log_transformed=log_transformed,
+                plot=False
+            )
+
+        results.append({
+            'Model': model_name,
+            'MSE': mse,
+            'RMSE': rmse,
+            'MAE': mae,
+            'R²': r2
+        })
+
+    comparison_df = pd.DataFrame(results)
+
+    comparison_df = comparison_df.sort_values('RMSE')
+
+    print("\nModel Comparison:")
+    print(comparison_df)
+
+    if save_report:
+        # Add explanation for RMSE comparison
+        rmse_explanation = """**RMSE (Root Mean Squared Error)**: This chart compares the RMSE values across different models.
+RMSE measures the average magnitude of prediction errors in the original units (euros for car prices).
+Lower values indicate better model performance as they represent smaller prediction errors.
+RMSE is particularly sensitive to large errors, as it squares the differences before averaging."""
+
+        plt.figure(figsize=(12, 6))
+        sns.barplot(x='Model', y='RMSE', data=comparison_df)
+        plt.title('RMSE Model Comparison (lower is better)')
+        plt.xticks(rotation=45)
+        plt.tight_layout()
+
+        comparison_file = os.path.join(report_dir, "model_comparison_rmse.png")
+        plt.savefig(comparison_file, dpi=300, bbox_inches="tight")
+        plt.close()
+
+        metrics = ['MSE', 'MAE', 'R²']
+        metric_explanations = {
+            'MSE': """**MSE (Mean Squared Error)**: This chart compares the MSE values across different models.
+MSE is calculated by taking the average of squared differences between predicted and actual values.
+Lower values indicate better model performance.
+MSE heavily penalizes larger errors due to the squaring operation, making it useful for identifying models that avoid large mistakes.""",
+
+            'MAE': """**MAE (Mean Absolute Error)**: This chart compares the MAE values across different models.
+MAE measures the average absolute difference between predicted and actual car prices in euros.
+Lower values indicate better model performance.
+Unlike MSE/RMSE, MAE treats all error magnitudes linearly (no squaring), making it less sensitive to outliers.""",
+
+            'R²': """**R² (Coefficient of Determination)**: This chart compares the R² values across different models.
+R² represents the proportion of variance in the car prices that is predictable from the features.
+Higher values (closer to 1.0) indicate better model performance.
+A value of 0.75 means the model explains 75% of the variance in car prices, while a value of 0 would mean the model provides no better predictions than simply using the mean price."""
+        }
+
+        for metric in metrics:
+            plt.figure(figsize=(12, 6))
+            if metric == 'R²':
+                sns.barplot(x='Model', y=metric, data=comparison_df.sort_values(metric, ascending=False))
+                plt.title(f'{metric} Model Comparison (higher is better)')
+            else:
+                sns.barplot(x='Model', y=metric, data=comparison_df.sort_values(metric))
+                plt.title(f'{metric} Model Comparison (lower is better)')
+            plt.xticks(rotation=45)
+            plt.tight_layout()
+
+            metric_file = os.path.join(report_dir, f"model_comparison_{metric.replace('²', '2')}.png")
+            plt.savefig(metric_file, dpi=300, bbox_inches="tight")
+            plt.close()
+
+        csv_file = os.path.join(report_dir, "model_comparison.csv")
+        comparison_df.to_csv(csv_file, index=False)
+
+        report_file = os.path.join(report_dir, "model_comparison_report.md")
+
+        report_content = f"""# Model Comparison Report
+
+Created on: {datetime.now().strftime("%d.%m.%Y, %H:%M:%S")}
+
+## Model Performance Comparison
+
+| Model | MSE | RMSE | MAE | R² |
+|-------|-----|------|-----|-----|
+"""
+
+        best_model = comparison_df.iloc[0]['Model']
+
+        for _, row in comparison_df.iterrows():
+            report_content += f"| {row['Model']} | {row['MSE']:.2f} | {row['RMSE']:.2f} | {row['MAE']:.2f} | {row['R²']:.4f} |\n"
+
+        report_content += "\n## Comparison Charts\n\n"
+
+        metrics_display = {
+            'rmse': 'RMSE (Root Mean Squared Error)',
+            'MSE': 'MSE (Mean Squared Error)',
+            'MAE': 'MAE (Mean Absolute Error)',
+            'R2': 'R² (Coefficient of Determination)'
+        }
+
+        for metric, display_name in metrics_display.items():
+            metric_name = metric.replace('2', '²')
+            file_name = f"model_comparison_{metric}.png"
+            if os.path.exists(os.path.join(report_dir, file_name)):
+                report_content += f"### {display_name}\n\n"
+
+                # Add appropriate explanation based on the metric
+                if metric == 'rmse':
+                    report_content += rmse_explanation + "\n\n"
+                elif metric in metric_explanations:
+                    report_content += metric_explanations[metric.replace('2', '²')] + "\n\n"
+
+                report_content += f"![{metric_name} Comparison]({file_name})\n\n"
+
+        report_content += "## Detailed Model Reports\n\n"
+        report_content += "Here are links to detailed reports for each model:\n\n"
+
+        for model_name in models_dict.keys():
+            model_report_path = os.path.join(model_name, "report.md")
+            report_content += f"- [{model_name}]({model_report_path})\n"
+
+        report_content += "\n## Summary\n\n"
+
+        report_content += f"""Based on the RMSE value, **{best_model}** is the best model with an RMSE of **{comparison_df.iloc[0]['RMSE']:.2f}** and an R² value of **{comparison_df.iloc[0]['R²']:.4f}**.
+
+The complete comparison data has been saved in [model_comparison.csv](model_comparison.csv).
+
+Evaluation date: {datetime.now().strftime("%d.%m.%Y, %H:%M:%S")}
+"""
+
+        with open(report_file, 'w', encoding='utf-8') as f:
+            f.write(report_content)
+
+        print(f"\nComparison report has been created and saved at {report_file}")
+
+    return comparison_df
+
+
+def generate_report(models_dict, X_test, y_test, log_transformed=False):
+    """
+    Convenient function to generate a comprehensive report for multiple models.
+
+    Args:
+        models_dict (dict): Dictionary with model names as keys and trained models as values
+        X_test (pandas.DataFrame): Test features
+        y_test (pandas.Series): Actual target values
+        log_transformed (bool): Whether the target values were log-transformed
+
+    Returns:
+        str: Path to the report directory
+    """
+    # Create directory for reports
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    report_dir = f"results/reports/full_report_{timestamp}"
+    os.makedirs(report_dir, exist_ok=True)
+
+    print(f"Creating comprehensive report in directory {report_dir}...")
+
+    comparison_df = compare_models(
+        models_dict,
+        X_test,
+        y_test,
+        log_transformed=log_transformed,
+        save_report=True
+    )
+
+    return f"results/reports/model_comparison_{timestamp}/model_comparison_report.md"
+
+
+def evaluate_all_models(X_test, y_test, log_transformed=False):
+    """
+    Evaluates all available models and creates a comparison report.
+
+    Args:
+        X_test (pandas.DataFrame): Test features
+        y_test (pandas.Series): Actual target values
+        log_transformed (bool): Whether the target values were log-transformed
+
+    Returns:
+        str: Path to the comparison report
+    """
+    # Define the models to look for
+    model_types = ['ridge', 'lasso', 'elastic_net', 'random_forest', 'xgboost']
+
+    # Dictionary to store available models
+    models_dict = {}
+
+    # Check which models are available and load them
+    models_dir = 'models/trained'
+    if not os.path.exists(models_dir):
+        models_dir = 'models'  # Fallback to main models directory
+
+    for model_type in model_types:
+        model_path = os.path.join(models_dir, f'{model_type}_model.pkl')
+        if os.path.exists(model_path):
+            try:
+                print(f"Loading model: {model_type}")
+                model = joblib.load(model_path)
+                models_dict[model_type] = model
+            except Exception as e:
+                print(f"Error loading {model_type} model: {e}")
+
+    # Also check for best model
+    best_model_path = os.path.join('models', 'best_model.pkl')
+    if os.path.exists(best_model_path):
+        try:
+            print("Loading best model")
+            model = joblib.load(best_model_path)
+            models_dict['best'] = model
+        except Exception as e:
+            print(f"Error loading best model: {e}")
+
+    if not models_dict:
+        raise ValueError("No trained models found. Please train models first.")
+
+    # Generate the comparison report
+    print(f"Evaluating {len(models_dict)} models: {', '.join(models_dict.keys())}")
+
+    # Collect performance metrics for each model without creating individual reports
+    results = []
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    report_dir = f"results/reports/model_comparison_{timestamp}"
+    os.makedirs(report_dir, exist_ok=True)
+
+    for model_name, model in models_dict.items():
+        print(f"\nEvaluating {model_name}...")
+        y_pred = model.predict(X_test)
+
+        if log_transformed:
+            y_pred = np.expm1(y_pred)
+            y_test_original = np.expm1(y_test)
+        else:
+            y_test_original = y_test
+
+        mse = mean_squared_error(y_test_original, y_pred)
+        rmse = np.sqrt(mse)
+        mae = mean_absolute_error(y_test_original, y_pred)
+        r2 = r2_score(y_test_original, y_pred)
+
+        print(f"MSE: {mse:.2f}")
+        print(f"RMSE: {rmse:.2f}")
+        print(f"MAE: {mae:.2f}")
+        print(f"R²: {r2:.4f}")
+
+        results.append({
+            'Model': model_name,
+            'MSE': mse,
+            'RMSE': rmse,
+            'MAE': mae,
+            'R²': r2
+        })
+
+    # Create comparison DataFrame
+    comparison_df = pd.DataFrame(results)
+    comparison_df = comparison_df.sort_values('RMSE')
+
+    print("\nModel Comparison:")
+    print(comparison_df)
+
+    # Create comparison visualizations with explanations
+    # RMSE explanation
+    rmse_explanation = """**RMSE (Root Mean Squared Error)**: This chart compares the RMSE values across different models.
+RMSE measures the average magnitude of prediction errors in the original units (euros for car prices).
+Lower values indicate better model performance as they represent smaller prediction errors.
+RMSE is particularly sensitive to large errors, as it squares the differences before averaging."""
+
+    plt.figure(figsize=(12, 6))
+    sns.barplot(x='Model', y='RMSE', data=comparison_df)
+    plt.title('RMSE Model Comparison (lower is better)')
+    plt.xticks(rotation=45)
+    plt.tight_layout()
+    comparison_file = os.path.join(report_dir, "model_comparison_rmse.png")
+    plt.savefig(comparison_file, dpi=300, bbox_inches="tight")
+    plt.close()
+
+    # Other metrics explanations
+    metric_explanations = {
+        'MSE': """**MSE (Mean Squared Error)**: This chart compares the MSE values across different models.
+MSE is calculated by taking the average of squared differences between predicted and actual values.
+Lower values indicate better model performance.
+MSE heavily penalizes larger errors due to the squaring operation, making it useful for identifying models that avoid large mistakes.""",
+
+        'MAE': """**MAE (Mean Absolute Error)**: This chart compares the MAE values across different models.
+MAE measures the average absolute difference between predicted and actual car prices in euros.
+Lower values indicate better model performance.
+Unlike MSE/RMSE, MAE treats all error magnitudes linearly (no squaring), making it less sensitive to outliers.""",
+
+        'R²': """**R² (Coefficient of Determination)**: This chart compares the R² values across different models.
+R² represents the proportion of variance in the car prices that is predictable from the features.
+Higher values (closer to 1.0) indicate better model performance.
+A value of 0.75 means the model explains 75% of the variance in car prices, while a value of 0 would mean the model provides no better predictions than simply using the mean price."""
+    }
+
+    metrics = ['MSE', 'MAE', 'R²']
+    for metric in metrics:
+        plt.figure(figsize=(12, 6))
+        if metric == 'R²':
+            sns.barplot(x='Model', y=metric, data=comparison_df.sort_values(metric, ascending=False))
+            plt.title(f'{metric} Model Comparison (higher is better)')
+        else:
+            sns.barplot(x='Model', y=metric, data=comparison_df.sort_values(metric))
+            plt.title(f'{metric} Model Comparison (lower is better)')
+        plt.xticks(rotation=45)
+        plt.tight_layout()
+        metric_file = os.path.join(report_dir, f"model_comparison_{metric.replace('²', '2')}.png")
+        plt.savefig(metric_file, dpi=300, bbox_inches="tight")
+        plt.close()
+
+    # Save comparison data
+    csv_file = os.path.join(report_dir, "model_comparison.csv")
+    comparison_df.to_csv(csv_file, index=False)
+
+    # Create the comparison report with explanations
+    report_file = os.path.join(report_dir, "model_comparison_report.md")
+    best_model = comparison_df.iloc[0]['Model']
+
+    report_content = f"""# Model Comparison Report
+
+Created on: {datetime.now().strftime("%d.%m.%Y, %H:%M:%S")}
+
+## Model Performance Comparison
+
+| Model | MSE | RMSE | MAE | R² |
+|-------|-----|------|-----|-----|
+"""
+
+    for _, row in comparison_df.iterrows():
+        report_content += f"| {row['Model']} | {row['MSE']:.2f} | {row['RMSE']:.2f} | {row['MAE']:.2f} | {row['R²']:.4f} |\n"
+
+    report_content += "\n## Comparison Charts\n\n"
+
+    metrics_display = {
+        'rmse': 'RMSE (Root Mean Squared Error)',
+        'MSE': 'MSE (Mean Squared Error)',
+        'MAE': 'MAE (Mean Absolute Error)',
+        'R2': 'R² (Coefficient of Determination)'
+    }
+
+    for metric, display_name in metrics_display.items():
+        metric_name = metric.replace('2', '²')
+        file_name = f"model_comparison_{metric}.png"
+        if os.path.exists(os.path.join(report_dir, file_name)):
+            report_content += f"### {display_name}\n\n"
+
+            # Add the corresponding explanation
+            if metric == 'rmse':
+                report_content += rmse_explanation + "\n\n"
+            elif metric in ['MSE', 'MAE', 'R2']:
+                # Convert R2 back to R² for the dictionary lookup
+                lookup_key = metric.replace('2', '²')
+                report_content += metric_explanations[lookup_key] + "\n\n"
+
+            report_content += f"![{metric_name} Comparison]({file_name})\n\n"
+
+    report_content += "\n## Summary\n\n"
+    report_content += f"""Based on the RMSE value, **{best_model}** is the best model with an RMSE of **{comparison_df.iloc[0]['RMSE']:.2f}** and an R² value of **{comparison_df.iloc[0]['R²']:.4f}**.
+
+The complete comparison data has been saved in [model_comparison.csv](model_comparison.csv).
+
+Evaluation date: {datetime.now().strftime("%d.%m.%Y, %H:%M:%S")}
+"""
+
+    with open(report_file, 'w', encoding='utf-8') as f:
+        f.write(report_content)
+
+    print(f"\nComparison report has been created and saved at {report_file}")
+
+    return report_file
