@@ -10,10 +10,9 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
+import joblib
 from sklearn.metrics import mean_squared_error, r2_score, mean_absolute_error
 from datetime import datetime
-
-from xgboost.testing.data import joblib
 
 
 def evaluate_model(model, X_test, y_test, log_transformed=False, plot=True, save_report=False, model_name=None):
@@ -457,7 +456,6 @@ def evaluate_all_models(X_test, y_test, log_transformed=False):
 
     for model_type in model_types:
         model_path = os.path.join(models_dir, f'{model_type}_model.pkl')
-        print(f"DEBUG: Checking for model at {model_path}")
         if os.path.exists(model_path):
             try:
                 print(f"Loading model: {model_type}")
@@ -481,4 +479,120 @@ def evaluate_all_models(X_test, y_test, log_transformed=False):
 
     # Generate the comparison report
     print(f"Evaluating {len(models_dict)} models: {', '.join(models_dict.keys())}")
-    return generate_report(models_dict, X_test, y_test, log_transformed)
+
+    # Collect performance metrics for each model without creating individual reports
+    results = []
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    report_dir = f"results/reports/model_comparison_{timestamp}"
+    os.makedirs(report_dir, exist_ok=True)
+
+    for model_name, model in models_dict.items():
+        print(f"\nEvaluating {model_name}...")
+        y_pred = model.predict(X_test)
+
+        if log_transformed:
+            y_pred = np.expm1(y_pred)
+            y_test_original = np.expm1(y_test)
+        else:
+            y_test_original = y_test
+
+        mse = mean_squared_error(y_test_original, y_pred)
+        rmse = np.sqrt(mse)
+        mae = mean_absolute_error(y_test_original, y_pred)
+        r2 = r2_score(y_test_original, y_pred)
+
+        print(f"MSE: {mse:.2f}")
+        print(f"RMSE: {rmse:.2f}")
+        print(f"MAE: {mae:.2f}")
+        print(f"R²: {r2:.4f}")
+
+        results.append({
+            'Model': model_name,
+            'MSE': mse,
+            'RMSE': rmse,
+            'MAE': mae,
+            'R²': r2
+        })
+
+    # Create comparison DataFrame
+    comparison_df = pd.DataFrame(results)
+    comparison_df = comparison_df.sort_values('RMSE')
+
+    print("\nModel Comparison:")
+    print(comparison_df)
+
+    # Create comparison visualizations
+    plt.figure(figsize=(12, 6))
+    sns.barplot(x='Model', y='RMSE', data=comparison_df)
+    plt.title('RMSE Model Comparison (lower is better)')
+    plt.xticks(rotation=45)
+    plt.tight_layout()
+    comparison_file = os.path.join(report_dir, "model_comparison_rmse.png")
+    plt.savefig(comparison_file, dpi=300, bbox_inches="tight")
+    plt.close()
+
+    metrics = ['MSE', 'MAE', 'R²']
+    for metric in metrics:
+        plt.figure(figsize=(12, 6))
+        if metric == 'R²':
+            sns.barplot(x='Model', y=metric, data=comparison_df.sort_values(metric, ascending=False))
+            plt.title(f'{metric} Model Comparison (higher is better)')
+        else:
+            sns.barplot(x='Model', y=metric, data=comparison_df.sort_values(metric))
+            plt.title(f'{metric} Model Comparison (lower is better)')
+        plt.xticks(rotation=45)
+        plt.tight_layout()
+        metric_file = os.path.join(report_dir, f"model_comparison_{metric.replace('²', '2')}.png")
+        plt.savefig(metric_file, dpi=300, bbox_inches="tight")
+        plt.close()
+
+    # Save comparison data
+    csv_file = os.path.join(report_dir, "model_comparison.csv")
+    comparison_df.to_csv(csv_file, index=False)
+
+    # Create the comparison report
+    report_file = os.path.join(report_dir, "model_comparison_report.md")
+    best_model = comparison_df.iloc[0]['Model']
+
+    report_content = f"""# Model Comparison Report
+
+Created on: {datetime.now().strftime("%d.%m.%Y, %H:%M:%S")}
+
+## Model Performance Comparison
+
+| Model | MSE | RMSE | MAE | R² |
+|-------|-----|------|-----|-----|
+"""
+
+    for _, row in comparison_df.iterrows():
+        report_content += f"| {row['Model']} | {row['MSE']:.2f} | {row['RMSE']:.2f} | {row['MAE']:.2f} | {row['R²']:.4f} |\n"
+
+    report_content += "\n## Comparison Charts\n\n"
+
+    metrics_display = {
+        'rmse': 'RMSE (Root Mean Squared Error)',
+        'MSE': 'MSE (Mean Squared Error)',
+        'MAE': 'MAE (Mean Absolute Error)',
+        'R2': 'R² (Coefficient of Determination)'
+    }
+
+    for metric, display_name in metrics_display.items():
+        metric_name = metric.replace('2', '²')
+        file_name = f"model_comparison_{metric}.png"
+        if os.path.exists(os.path.join(report_dir, file_name)):
+            report_content += f"### {display_name}\n\n![{metric_name} Comparison]({file_name})\n\n"
+
+    report_content += "\n## Summary\n\n"
+    report_content += f"""Based on the RMSE value, **{best_model}** is the best model with an RMSE of **{comparison_df.iloc[0]['RMSE']:.2f}** and an R² value of **{comparison_df.iloc[0]['R²']:.4f}**.
+
+The complete comparison data has been saved in [model_comparison.csv](model_comparison.csv).
+
+Evaluation date: {datetime.now().strftime("%d.%m.%Y, %H:%M:%S")}
+"""
+
+    with open(report_file, 'w', encoding='utf-8') as f:
+        f.write(report_content)
+
+    print(f"\nComparison report has been created and saved at {report_file}")
+
+    return report_file
