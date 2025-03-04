@@ -14,7 +14,7 @@ import numpy as np
 
 from src.data.preprocess import preprocess_data
 from src.model.train_model import train_models
-from src.model.evaluate_model import evaluate_model
+from src.model.evaluate_model import evaluate_model, evaluate_all_models
 
 
 def load_config():
@@ -96,19 +96,30 @@ def run_pipeline(mode='train', model_type='all', input_file=None, output_file=No
             print(f"R²: {metrics[3]:.4f}")
 
         elif mode == 'evaluate':
-            if model_type == 'best':
-                model_file = 'models/best_model.pkl'
+            if model_type == 'all':
+                # Evaluate all available models and create a comparison report
+                print("Evaluating all available models...")
+                report_path = evaluate_all_models(X_test, y_test, log_transformed=log_transform)
+                print(f"\nComparison report created at: {report_path}")
             else:
-                model_file = f'models/trained/{model_type}_model.pkl'
+                # Evaluate a single model
+                if model_type == 'best':
+                    model_file = 'models/best_model.pkl'
+                else:
+                    # Check in both locations
+                    if os.path.exists(f'models/trained/{model_type}_model.pkl'):
+                        model_file = f'models/trained/{model_type}_model.pkl'
+                    else:
+                        model_file = f'models/{model_type}_model.pkl'
 
-            if not os.path.exists(model_file):
-                raise ValueError(f"Model {model_file} not found. Please train a model first.")
+                if not os.path.exists(model_file):
+                    raise ValueError(f"Model {model_file} not found. Please train a model first.")
 
-            print(f"Loading model from {model_file}")
-            loaded_model = joblib.load(model_file)
+                print(f"Loading model from {model_file}")
+                loaded_model = joblib.load(model_file)
 
-            print(f"Evaluating model...")
-            metrics = evaluate_model(loaded_model, X_test, y_test, log_transform, plot=False, save_report=True, model_name=model_type)
+                print(f"Evaluating model...")
+                metrics = evaluate_model(loaded_model, X_test, y_test, log_transform, plot=False, save_report=True, model_name=model_type)
 
     elif mode == 'predict':
         print("Preprocessing data for prediction...")
@@ -119,7 +130,11 @@ def run_pipeline(mode='train', model_type='all', input_file=None, output_file=No
         if model_type == 'best':
             model_file = 'models/best_model.pkl'
         else:
-            model_file = f'models/trained/{model_type}_model.pkl'
+            # Check in both locations
+            if os.path.exists(f'models/trained/{model_type}_model.pkl'):
+                model_file = f'models/trained/{model_type}_model.pkl'
+            else:
+                model_file = f'models/{model_type}_model.pkl'
 
         if not os.path.exists(model_file):
             raise ValueError(f"Model {model_file} not found. Please train a model first.")

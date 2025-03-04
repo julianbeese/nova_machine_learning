@@ -13,6 +13,8 @@ import seaborn as sns
 from sklearn.metrics import mean_squared_error, r2_score, mean_absolute_error
 from datetime import datetime
 
+from xgboost.testing.data import joblib
+
 
 def evaluate_model(model, X_test, y_test, log_transformed=False, plot=True, save_report=False, model_name=None):
     """
@@ -428,3 +430,55 @@ def generate_report(models_dict, X_test, y_test, log_transformed=False):
     )
 
     return f"results/reports/model_comparison_{timestamp}/model_comparison_report.md"
+
+
+def evaluate_all_models(X_test, y_test, log_transformed=False):
+    """
+    Evaluates all available models and creates a comparison report.
+
+    Args:
+        X_test (pandas.DataFrame): Test features
+        y_test (pandas.Series): Actual target values
+        log_transformed (bool): Whether the target values were log-transformed
+
+    Returns:
+        str: Path to the comparison report
+    """
+    # Define the models to look for
+    model_types = ['ridge', 'lasso', 'elastic_net', 'random_forest', 'xgboost']
+
+    # Dictionary to store available models
+    models_dict = {}
+
+    # Check which models are available and load them
+    models_dir = 'models/trained'
+    if not os.path.exists(models_dir):
+        models_dir = 'models'  # Fallback to main models directory
+
+    for model_type in model_types:
+        model_path = os.path.join(models_dir, f'{model_type}_model.pkl')
+        print(f"DEBUG: Checking for model at {model_path}")
+        if os.path.exists(model_path):
+            try:
+                print(f"Loading model: {model_type}")
+                model = joblib.load(model_path)
+                models_dict[model_type] = model
+            except Exception as e:
+                print(f"Error loading {model_type} model: {e}")
+
+    # Also check for best model
+    best_model_path = os.path.join('models', 'best_model.pkl')
+    if os.path.exists(best_model_path):
+        try:
+            print("Loading best model")
+            model = joblib.load(best_model_path)
+            models_dict['best'] = model
+        except Exception as e:
+            print(f"Error loading best model: {e}")
+
+    if not models_dict:
+        raise ValueError("No trained models found. Please train models first.")
+
+    # Generate the comparison report
+    print(f"Evaluating {len(models_dict)} models: {', '.join(models_dict.keys())}")
+    return generate_report(models_dict, X_test, y_test, log_transformed)
