@@ -63,6 +63,11 @@ python main.py --mode predict --model elastic_net --input data/raw/new_cars.csv
 ```
 Results will be saved in `results/predictions.csv`.
 
+#### Make Predictions using the Streamlit App
+```bash
+python streamlit run app.py
+```
+
 ### Command Line Arguments
 | Argument | Description | Possible Values | Default |
 |----------|-------------|-----------------|---------|
@@ -113,4 +118,8 @@ Here's a typical workflow to use the project:
 5. **Predictions**: Use the best model for predictions on new data
    ```bash
    python main.py --mode predict --model best --input src/data/raw/new_cars.csv
+   ```
+6. **Predictions**: Use the best model for predictions on new data in the streamlit app
+   ```bash
+   python streamlit run app.py
    ```
