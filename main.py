@@ -37,6 +37,7 @@ def load_config():
                 'max_depth': 5,
                 'random_state': 42
             }
+
         }
         os.makedirs(os.path.dirname(config_path), exist_ok=True)
         with open(config_path, 'w') as file:
@@ -54,7 +55,7 @@ def run_pipeline(mode='train', model_type='all', input_file=None, output_file=No
 
     Args:
         mode (str): 'train', 'evaluate', or 'predict'
-        model_type (str): 'all', 'ridge', 'lasso', 'elastic_net', 'random_forest', 'xgboost', or 'best'
+        model_type (str): 'all', 'ridge', 'lasso', 'elastic_net', 'random_forest', 'xgboost', 'catboost', or 'best'
         input_file (str): Path to the input file (CSV)
         output_file (str): Path to save the trained model
         log_transform (bool): Whether logarithmic transformation of target values should be performed
