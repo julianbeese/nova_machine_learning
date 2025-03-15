@@ -50,11 +50,19 @@ def preprocess_data(df, log_transform=False, prediction_mode=False):
     if 'engine_volume' in data.columns and data['engine_volume'].dtype == 'object':
         data['engine_volume'] = data['engine_volume'].str.extract(r'(\d+\.?\d*)').astype(float)
 
+
+
+    # change doors column
+    data["doors"] = data["doors"].replace({'04-May': 5, '>5': 5, '02-Mar': 3})
+
     # Binary columns mapping (e.g., leather interior)
     binary_cols = ['leather_interior']
     for col in binary_cols:
         if col in data.columns:
             data[col] = data[col].map({'Yes': 1, 'No': 0, 'yes': 1, 'no': 0}).fillna(0)
+
+    # drop irrelevant columns
+    data.drop(columns=['id', 'levy'], inplace=True)
 
     # Ensure 'mileage' is numeric
     if 'mileage' in data.columns:
