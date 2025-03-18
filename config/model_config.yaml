@@ -11,7 +11,7 @@ lasso:
 
 # Parameteres for  random forest model
 random_forest:
-  max_depth: None
+  max_depth: 100
   max_features: 'sqrt'
   min_samples_leaf: 1
   min_samples_split: 2

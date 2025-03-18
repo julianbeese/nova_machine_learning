@@ -174,3 +174,16 @@ cython_debug/
 .idea
 /data!/src/data/test.csv
 !/src/data/train.csv
+/cachedir/joblib/xgboost/testing/data/get_digits/72a755383fba437e4dead6ff3e3d81e3/metadata.json
+/cachedir/joblib/xgboost/testing/make_sparse_regression/4eceaa8343e51d1a6b28f3835bc1e5f8/metadata.json
+/cachedir/joblib/xgboost/testing/make_sparse_regression/21d89ac557e51fc513bcfa1b3a195e82/metadata.json
+/cachedir/joblib/xgboost/testing/make_sparse_regression/04848d7b1c4746fa2b9e19ff8f140df4/metadata.json
+/cachedir/joblib/xgboost/testing/make_sparse_regression/6535ee2af697ca553e0ef47d8d994089/metadata.json
+/cachedir/joblib/xgboost/testing/make_sparse_regression/c3064417c1c6a8986f156ba82e4eb6da/metadata.json
+/cachedir/joblib/xgboost/testing/data/get_digits/func_code.py
+/cachedir/joblib/xgboost/testing/make_sparse_regression/func_code.py
+/cachedir/joblib/xgboost/testing/make_sparse_regression/21d89ac557e51fc513bcfa1b3a195e82/output.pkl
+/cachedir/joblib/xgboost/testing/make_sparse_regression/04848d7b1c4746fa2b9e19ff8f140df4/output.pkl
+/cachedir/joblib/xgboost/testing/make_sparse_regression/6535ee2af697ca553e0ef47d8d994089/output.pkl
+/cachedir/joblib/xgboost/testing/make_sparse_regression/c3064417c1c6a8986f156ba82e4eb6da/output.pkl
+!/models/trained/

@@ -1,220 +1,134 @@
 """
-Module for training models in the car price prediction project.
+Module for training different regression models for car price prediction.
 
-This module contains functions for training various ML models.
+This module provides functions to train different types of regression models
+without generating comparison reports.
 """
-import numpy as np
-from sklearn.linear_model import Ridge, Lasso, ElasticNet
-from sklearn.ensemble import RandomForestRegressor
-import xgboost as xgb
-from sklearn.model_selection import GridSearchCV, KFold
-from sklearn.preprocessing import StandardScaler, OneHotEncoder
-from sklearn.compose import ColumnTransformer
+import os
+import joblib
+from sklearn.preprocessing import StandardScaler
 from sklearn.pipeline import Pipeline
+from sklearn.compose import ColumnTransformer
+from sklearn.preprocessing import OneHotEncoder
 from sklearn.impute import SimpleImputer
 
-from src.model.evaluate_model import evaluate_model
-
-
-def build_pipeline(numeric_cols, categorical_cols, model_type='ridge'):
-    """
-    Creates an ML pipeline with preprocessor and the desired model.
-
-    Args:
-        numeric_cols (list): List of numeric columns
-        categorical_cols (list): List of categorical columns
-        model_type (str): Type of model to create
-
-    Returns:
-        sklearn.pipeline.Pipeline: The created pipeline
-    """
-    numeric_transformer = Pipeline(steps=[
-        ('imputer', SimpleImputer(strategy='median')),
-        ('scaler', StandardScaler())
-    ])
-
-    categorical_transformer = Pipeline(steps=[
-        ('imputer', SimpleImputer(strategy='most_frequent')),
-        ('onehot', OneHotEncoder(handle_unknown='ignore', sparse_output=False))
-    ])
-
-    preprocessor = ColumnTransformer(
-        transformers=[
-            ('num', numeric_transformer, numeric_cols),
-            ('cat', categorical_transformer, categorical_cols)
-        ])
-
-    if model_type == 'ridge':
-        model = Ridge(random_state=42)
-    elif model_type == 'lasso':
-        model = Lasso(random_state=42)
-    elif model_type == 'elastic_net':
-        model = ElasticNet(random_state=42)
-    elif model_type == 'random_forest':
-        model = RandomForestRegressor(random_state=42)
-    elif model_type == 'xgboost':
-        model = xgb.XGBRegressor(random_state=42)
-    else:
-        raise ValueError(f"Unknown model type: {model_type}")
-
-    pipeline = Pipeline(steps=[
-        ('preprocessor', preprocessor),
-        ('regressor', model)
-    ])
-
-    return pipeline
-
-
-def get_param_grid(model_type, config):
-    """
-    Creates a parameter grid for hyperparameter optimization based on the model type.
-
-    Args:
-        model_type (str): Type of model
-        config (dict): Configuration values from config/model_config.yaml
-
-    Returns:
-        dict: Parameter grid for GridSearchCV
-    """
-    # Default values if no configuration is provided
-    if model_type == 'ridge':
-        return {
-            'regressor__alpha': [0.01, 0.1, 1.0, 10.0, 100.0] if not config.get('ridge') else [
-                config['ridge'].get('alpha', 1.0)],
-            'regressor__solver': ['auto', 'svd', 'cholesky', 'lsqr', 'sparse_cg'] if not config.get('ridge') else [
-                config['ridge'].get('solver', 'auto')]
-        }
-    elif model_type == 'lasso':
-        return {
-            'regressor__alpha': [0.01, 0.1, 1.0, 10.0, 100.0] if not config.get('lasso') else [
-                config['lasso'].get('alpha', 0.1)],
-            'regressor__max_iter': [1000, 3000, 5000] if not config.get('lasso') else [
-                config['lasso'].get('max_iter', 1000)]
-        }
-    elif model_type == 'elastic_net':
-        return {
-            'regressor__alpha': [0.01, 0.1, 1.0, 10.0] if not config.get('elastic_net') else [
-                config['elastic_net'].get('alpha', 0.1)],
-            'regressor__l1_ratio': [0.1, 0.3, 0.5, 0.7, 0.9] if not config.get('elastic_net') else [
-                config['elastic_net'].get('l1_ratio', 0.5)],
-            'regressor__max_iter': [1000, 3000] if not config.get('elastic_net') else [
-                config['elastic_net'].get('max_iter', 1000)]
-        }
-    elif model_type == 'random_forest':
-        return {
-            'regressor__n_estimators': [10, 50, 100] if not config.get('random_forest') else [
-                config['random_forest'].get('n_estimators', 100)],
-            'regressor__max_depth': [3, 5, 10] if not config.get('random_forest') else [
-                config['random_forest'].get('max_depth', 10)],
-            'regressor__min_samples_split': [2, 5, 10] if not config.get('random_forest') else [
-                config['random_forest'].get('min_samples_split', 2)],
-            'regressor__min_samples_leaf': [1, 2, 4] if not config.get('random_forest') else [
-                config['random_forest'].get('min_samples_leaf', 1)]
-        }
-    elif model_type == 'xgboost':
-        return {
-            'regressor__n_estimators': [10, 50, 100] if not config.get('xgboost') else [
-                config['xgboost'].get('n_estimators', 100)],
-            'regressor__max_depth': [3, 5, 10] if not config.get('xgboost') else [
-                config['xgboost'].get('max_depth', 5)],
-            'regressor__learning_rate': [0.01, 0.1, 0.5] if not config.get('xgboost') else [
-                config['xgboost'].get('learning_rate', 0.1)]
-        }
-    else:
-        return {}
-
-
-def train_model(X_train, y_train, X_test, y_test, model_type, config, log_transformed=False):
-    """
-    Trains a single model with hyperparameter optimization.
-
-    Args:
-        X_train (pandas.DataFrame): Training features
-        y_train (pandas.Series): Training target values
-        X_test (pandas.DataFrame): Test features
-        y_test (pandas.Series): Test target values
-        model_type (str): Type of model to train
-        config (dict): Configuration values
-        log_transformed (bool): Whether the target values were logarithmically transformed
-
-    Returns:
-        tuple: (best_model, metrics) - Best model and evaluation metrics
-    """
-    numeric_cols = X_train.select_dtypes(include=['int64', 'float64']).columns.tolist()
-    categorical_cols = X_train.select_dtypes(include=['object']).columns.tolist()
-
-    pipeline = build_pipeline(numeric_cols, categorical_cols, model_type)
-
-    param_grid = get_param_grid(model_type, config)
-
-    cv = KFold(n_splits=5, shuffle=True, random_state=42)
-
-    grid_search = GridSearchCV(
-        pipeline,
-        param_grid=param_grid,
-        cv=cv,
-        scoring='neg_mean_squared_error',
-        verbose=1,
-        n_jobs=-1
-    )
-
-    print(f"Training the {model_type} model with Grid Search...")
-    grid_search.fit(X_train, y_train)
-
-    print(f"Best parameters for {model_type}: {grid_search.best_params_}")
-    print(f"Best cross-validation score: {-grid_search.best_score_:.4f}")
-
-    metrics = evaluate_model(grid_search.best_estimator_, X_test, y_test, log_transformed, plot=False)
-
-    return grid_search.best_estimator_, metrics
+# Import model-specific modules
+# Import from __init__.py file
+from models.elastic_net import run_elastic_net_pipeline, train_elastic_net
+# Import from lasso.py and ridge.py
+from models.lasso import train_lasso, run_lasso_pipeline
+from models.ridge import train_ridge, run_ridge_pipeline
+# Import random_forest.py
+from models.random_forest import run_random_forest_pipeline
+# Import from xgboost.py
+from models.xgboost import run_xgboost_pipeline
 
 
 def train_models(X_train, y_train, X_test, y_test, model_type='all', config=None, log_transformed=False):
     """
-    Trains one or more models and selects the best one.
+    Train one or more regression models.
 
     Args:
-        X_train (pandas.DataFrame): Training features
-        y_train (pandas.Series): Training target values
-        X_test (pandas.DataFrame): Test features
-        y_test (pandas.Series): Test target values
-        model_type (str): Type of model to train ('all' or specific type)
-        config (dict): Configuration values
-        log_transformed (bool): Whether the target values were logarithmically transformed
+        X_train: Training features
+        y_train: Training target values
+        X_test: Test features
+        y_test: Test target values
+        model_type: Type of model to train ('all', 'ridge', 'lasso', 'elastic_net', 'random_forest', 'xgboost')
+        config: Configuration dictionary for model parameters
+        log_transformed: Whether target values were log-transformed
 
     Returns:
-        tuple: (best_model, best_metrics) - Best model and its metrics
+        tuple: (best_model, best_metrics) - The best model and its performance metrics
     """
-    if config is None:
-        config = {}
+    # Create directory for trained models if it doesn't exist
+    os.makedirs('models/trained', exist_ok=True)
 
-    if model_type == 'all':
-        print("Training all models...")
-        models = {}
-        metrics = {}
+    # Get numerical and categorical columns from X_train
+    numeric_cols = X_train.select_dtypes(include=['int64', 'float64']).columns.tolist()
+    categorical_cols = X_train.select_dtypes(include=['object', 'category']).columns.tolist()
 
-        for m_type in ['ridge', 'lasso', 'elastic_net', 'random_forest', 'xgboost']:
-            print(f"\n===== Training the {m_type} model =====")
-            model, model_metrics = train_model(
-                X_train, y_train, X_test, y_test,
-                model_type=m_type,
-                config=config,
-                log_transformed=log_transformed
-            )
-            models[m_type] = model
-            metrics[m_type] = model_metrics
+    # Dictionary to store all trained models and their performance metrics
+    all_models = {}
+    all_metrics = {}
 
-        best_model_type = min(metrics, key=lambda k: metrics[k][1])
-        best_model = models[best_model_type]
-        best_metrics = metrics[best_model_type]
+    if model_type in ['all', 'ridge']:
+        print("\n\n=== Training Ridge Regression Model ===")
+        ridge_model, ridge_metrics = run_ridge_pipeline(
+            X_train, y_train, X_test, y_test, numeric_cols, categorical_cols, log_transformed
+        )
+        all_models['ridge'] = ridge_model
+        all_metrics['ridge'] = ridge_metrics
 
-        print(f"\nBest model: {best_model_type} with RMSE: {best_metrics[1]:.2f}")
+        # Save the model
+        joblib.dump(ridge_model, 'models/trained/ridge_model.pkl')
+        print("Ridge model saved to models/trained/ridge_model.pkl")
 
-        import joblib
-        import os
-        os.makedirs('models/trained', exist_ok=True)
-        joblib.dump(best_model, 'models/trained/best_model.pkl')
+    if model_type in ['all', 'lasso']:
+        print("\n\n=== Training Lasso Regression Model ===")
+        lasso_model, lasso_metrics = run_lasso_pipeline(
+            X_train, y_train, X_test, y_test, numeric_cols, categorical_cols, log_transformed
+        )
+        all_models['lasso'] = lasso_model
+        all_metrics['lasso'] = lasso_metrics
 
-        return best_model, best_metrics
-    else:
-        return train_model(X_train, y_train, X_test, y_test, model_type, config, log_transformed)
+        # Save the model
+        joblib.dump(lasso_model, 'models/trained/lasso_model.pkl')
+        print("Lasso model saved to models/trained/lasso_model.pkl")
+
+    if model_type in ['all', 'elastic_net']:
+        print("\n\n=== Training Elastic Net Regression Model ===")
+        elastic_net_model, elastic_net_metrics = run_elastic_net_pipeline(
+            X_train, y_train, X_test, y_test, numeric_cols, categorical_cols, log_transformed
+        )
+        all_models['elastic_net'] = elastic_net_model
+        all_metrics['elastic_net'] = elastic_net_metrics
+
+        # Save the model
+        joblib.dump(elastic_net_model, 'models/trained/elastic_net_model.pkl')
+        print("Elastic Net model saved to models/trained/elastic_net_model.pkl")
+
+    if model_type in ['all', 'random_forest']:
+        print("\n\n=== Training Random Forest Regression Model ===")
+        random_forest_model, random_forest_metrics = run_random_forest_pipeline(
+            X_train, y_train, X_test, y_test, numeric_cols, categorical_cols, log_transformed
+        )
+        all_models['random_forest'] = random_forest_model
+        all_metrics['random_forest'] = random_forest_metrics
+
+        # Save the model
+        joblib.dump(random_forest_model, 'models/trained/random_forest_model.pkl')
+        print("Random Forest model saved to models/trained/random_forest_model.pkl")
+
+    if model_type in ['all', 'xgboost']:
+        print("\n\n=== Training XGBoost Regression Model ===")
+        xgboost_model, xgboost_metrics = run_xgboost_pipeline(
+            X_train, y_train, X_test, y_test, log_transformed
+        )
+        all_models['xgboost'] = xgboost_model
+        all_metrics['xgboost'] = xgboost_metrics
+
+        # Save the model
+        joblib.dump(xgboost_model, 'models/trained/xgboost_model.pkl')
+        print("XGBoost model saved to models/trained/xgboost_model.pkl")
+
+    # If requested a specific model, return that model and its metrics
+    if model_type != 'all':
+        return all_models[model_type], all_metrics[model_type]
+
+    # Find the best model based on R²
+    best_model_name = max(all_metrics, key=lambda x: all_metrics[x][3])  # R² is at index 3
+    best_model = all_models[best_model_name]
+    best_metrics = all_metrics[best_model_name]
+
+    # Display basic information about the best model
+    print(f"\n\n=== Best Model: {best_model_name.upper()} ===")
+    print(f"MSE: {best_metrics[0]:.2f}")
+    print(f"RMSE: {best_metrics[1]:.2f}")
+    print(f"MAE: {best_metrics[2]:.2f}")
+    print(f"R²: {best_metrics[3]:.4f}")
+
+    # Save the best model
+    joblib.dump(best_model, 'models/trained/best_model.pkl')
+    print("Best model saved to models/trained/best_model.pkl")
+
+    return best_model, best_metrics

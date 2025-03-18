@@ -8,13 +8,15 @@ import matplotlib.pyplot as plt
 import numpy as np
 from sklearn.model_selection import GridSearchCV
 from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import StandardScaler, OneHotEncoder
+from sklearn.compose import ColumnTransformer
+from sklearn.impute import SimpleImputer
 from xgboost import XGBRegressor
 
 from src.model.evaluate_model import evaluate_model
 
 
-def train_xgboost(X_train, y_train, X_test, y_test, param_grid=None, log_transformed=False):
+def train_xgboost(X_train, y_train, X_test, y_test, numeric_cols, categorical_cols, param_grid=None, log_transformed=False):
     """
     Trains an XGBoost regression model with hyperparameter optimization.
 
@@ -23,6 +25,8 @@ def train_xgboost(X_train, y_train, X_test, y_test, param_grid=None, log_transfo
         y_train: Training target values
         X_test: Test features
         y_test: Test target values
+        numeric_cols: List of numeric column names
+        categorical_cols: List of categorical column names
         param_grid: Parameter grid for GridSearchCV (optional)
         log_transformed: Whether the target values were logarithmically transformed
 
@@ -40,8 +44,27 @@ def train_xgboost(X_train, y_train, X_test, y_test, param_grid=None, log_transfo
             'xgb__reg_lambda': [1.0]
         }
 
+    # Create preprocessing steps for numeric and categorical features
+    numeric_transformer = Pipeline(steps=[
+        ('imputer', SimpleImputer(strategy='median')),
+        ('scaler', StandardScaler())
+    ])
+
+    categorical_transformer = Pipeline(steps=[
+        ('imputer', SimpleImputer(strategy='most_frequent')),
+        ('onehot', OneHotEncoder(handle_unknown='ignore', sparse_output=False))
+    ])
+
+    # Create a preprocessor that applies the appropriate transformer to each column type
+    preprocessor = ColumnTransformer(
+        transformers=[
+            ('num', numeric_transformer, numeric_cols),
+            ('cat', categorical_transformer, categorical_cols)
+        ])
+
+    # Create a pipeline with preprocessing and XGBoost
     pipeline = Pipeline([
-        ('scaler', StandardScaler()),
+        ('preprocessor', preprocessor),
         ('xgb', XGBRegressor(random_state=42))
     ])
 
@@ -64,22 +87,29 @@ def train_xgboost(X_train, y_train, X_test, y_test, param_grid=None, log_transfo
     best_model = grid_search.best_estimator_
     metrics = evaluate_model(best_model, X_test, y_test, log_transformed)
 
-    if hasattr(best_model.named_steps['xgb'], 'feature_importances_'):
-        feature_names = X_train.columns.tolist()
+    # Feature importance visualization for XGBoost (if accessible)
+    try:
+        if hasattr(best_model.named_steps['xgb'], 'feature_importances_'):
+            # This will give us a list of feature names after preprocessing
+            # But it's not straightforward to map back to original features with OHE
+            # This is a simplified approach
+            importances = best_model.named_steps['xgb'].feature_importances_
+            indices = np.argsort(importances)[::-1]
 
-        importances = best_model.named_steps['xgb'].feature_importances_
-
-        indices = np.argsort(importances)[::-1]
-
-        plt.bar(range(min(20, len(indices))), importances[indices[:20]], align='center')
-        plt.xticks(range(min(20, len(indices))), [feature_names[i] for i in indices[:20]], rotation=90)
-        plt.tight_layout()
-        plt.show()
+            plt.figure(figsize=(10, 6))
+            plt.title('XGBoost Feature Importances')
+            plt.bar(range(min(20, len(indices))), importances[indices[:20]], align='center')
+            plt.xticks(range(min(20, len(indices))), range(min(20, len(indices))), rotation=90)
+            plt.tight_layout()
+            plt.savefig('results/xgboost_feature_importance.png')
+            plt.close()
+    except Exception as e:
+        print(f"Could not plot feature importances: {e}")
 
     return best_model, metrics
 
 
-def run_xgboost_pipeline(X_train, y_train, X_test, y_test, log_transformed=False):
+def run_xgboost_pipeline(X_train, y_train, X_test, y_test, numeric_cols, categorical_cols, log_transformed=False):
     """
     Executes the complete pipeline for the XGBoost model.
 
@@ -88,6 +118,8 @@ def run_xgboost_pipeline(X_train, y_train, X_test, y_test, log_transformed=False
         y_train: Training target values
         X_test: Test features
         y_test: Test target values
+        numeric_cols: List of numeric column names
+        categorical_cols: List of categorical column names
         log_transformed: Whether the target values were logarithmically transformed
 
     Returns:
@@ -103,4 +135,4 @@ def run_xgboost_pipeline(X_train, y_train, X_test, y_test, log_transformed=False
         'xgb__reg_lambda': [0.3, 1.0]
     }
 
-    return train_xgboost(X_train, y_train, X_test, y_test, param_grid, log_transformed)
+    return train_xgboost(X_train, y_train, X_test, y_test, numeric_cols, categorical_cols, param_grid, log_transformed)

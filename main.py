@@ -70,7 +70,7 @@ def run_pipeline(mode='train', model_type='all', input_file=None, output_file=No
 
     if output_file is None:
         os.makedirs('models', exist_ok=True)
-        output_file = f'models/{model_type}_model.pkl'
+        output_file = f'models/trained/{model_type}_model.pkl'
 
     if mode in ['train', 'evaluate']:
         print("Preprocessing the data...")
