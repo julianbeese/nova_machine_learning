@@ -16,7 +16,7 @@ from xgboost import XGBRegressor
 from src.model.evaluate_model import evaluate_model
 
 
-def train_xgboost(X_train, y_train, X_test, y_test, numeric_cols, categorical_cols, param_grid=None, log_transformed=False):
+def train_xgboost(X_train, y_train, X_test, y_test, param_grid=None, log_transformed=False):
     """
     Trains an XGBoost regression model with hyperparameter optimization.
 
@@ -25,8 +25,6 @@ def train_xgboost(X_train, y_train, X_test, y_test, numeric_cols, categorical_co
         y_train: Training target values
         X_test: Test features
         y_test: Test target values
-        numeric_cols: List of numeric column names
-        categorical_cols: List of categorical column names
         param_grid: Parameter grid for GridSearchCV (optional)
         log_transformed: Whether the target values were logarithmically transformed
 
@@ -45,6 +43,9 @@ def train_xgboost(X_train, y_train, X_test, y_test, numeric_cols, categorical_co
         }
 
     # Create preprocessing steps for numeric and categorical features
+    numeric_cols = X_train.select_dtypes(include=['int64', 'float64']).columns.tolist()
+    categorical_cols = X_train.select_dtypes(include=['object', 'category']).columns.tolist()
+
     numeric_transformer = Pipeline(steps=[
         ('imputer', SimpleImputer(strategy='median')),
         ('scaler', StandardScaler())
@@ -109,7 +110,7 @@ def train_xgboost(X_train, y_train, X_test, y_test, numeric_cols, categorical_co
     return best_model, metrics
 
 
-def run_xgboost_pipeline(X_train, y_train, X_test, y_test, numeric_cols, categorical_cols, log_transformed=False):
+def run_xgboost_pipeline(X_train, y_train, X_test, y_test, log_transformed=False):
     """
     Executes the complete pipeline for the XGBoost model.
 
@@ -118,8 +119,6 @@ def run_xgboost_pipeline(X_train, y_train, X_test, y_test, numeric_cols, categor
         y_train: Training target values
         X_test: Test features
         y_test: Test target values
-        numeric_cols: List of numeric column names
-        categorical_cols: List of categorical column names
         log_transformed: Whether the target values were logarithmically transformed
 
     Returns:
@@ -135,4 +134,4 @@ def run_xgboost_pipeline(X_train, y_train, X_test, y_test, numeric_cols, categor
         'xgb__reg_lambda': [0.3, 1.0]
     }
 
-    return train_xgboost(X_train, y_train, X_test, y_test, numeric_cols, categorical_cols, param_grid, log_transformed)
+    return train_xgboost(X_train, y_train, X_test, y_test, param_grid, log_transformed)
