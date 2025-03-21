@@ -27,6 +27,8 @@ pip install -r requirements.txt
 # Or install as a Python package
 pip install -e .
 ```
+## EDA
+To access the project's Exploratory Data Analysis (EDA), please open the Jupyter Notebook "EDACars.ipynb", located in the "notebooks" directory of this repository. It explores key patterns, distributions, and relationships in the dataset through summary statistics and visualizations, making it the foundation of our project. 
 
 ## Usage
 The project provides a unified command-line interface through the `main.py` file. Here are the main commands:
